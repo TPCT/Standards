@@ -83,9 +83,21 @@ unsigned putString(SFILE *file, String stringToWrite) {
     return i;
 }
 
+String getString(SFILE *file, int StringLen) {
+    String data = (String) calloc(StringLen + 1, sizeof(char));
+    int length = 0, character;
+    while ((character = getC(file)) != EOF && length < StringLen) {
+        data[length++] = character;
+    }
+    data[length] = '\0';
+    return data;
+}
+
 int Fseek(SFILE *file, long position, char origin) {
     Fflush(file);
-    return lseek(file->fd, position, origin);
+    int data = lseek(file->fd, position, origin);
+    _fillBuf(file);
+    return data;
 }
 
 int putChar(char input) {
@@ -205,7 +217,7 @@ SFILE *Fopen(char *FileName, char const *mode) {
             break;
         case 'r':
             if (RDWR) {
-                fd = open(FileName, O_RDWR);
+                fd = open(FileName, O_RDWR, 0);
                 returnFile->flag = _RDWR;
             } else {
                 fd = open(FileName, O_RDONLY);
@@ -215,7 +227,7 @@ SFILE *Fopen(char *FileName, char const *mode) {
                 return NULL;
             break;
         case 'a':
-            fd = open(FileName, O_RDWR | O_APPEND | O_CREAT);
+            fd = open(FileName, O_RDWR | O_APPEND | O_CREAT, 0);
             returnFile->flag = _WRITE;
             break;
         default:

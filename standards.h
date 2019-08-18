@@ -72,6 +72,9 @@ int putChar(char input);
 int getChar(void);
 
 int getCh(void);
+
+String getString(SFILE *file, int StringLen);
+
 String getPWD(unsigned long long passwordSize, char replacementChar);
 
 SFILE *Fopen(char *, char const *);
