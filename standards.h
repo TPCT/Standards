@@ -1,5 +1,6 @@
-#ifndef STANDARDS_STANDARDS_H
-#define STANDARDS_STANDARDS_H
+#ifndef TESTING_PROJECT_STD_H
+#define TESTING_PROJECT_STD_H
+#define PERMS 0666
 #ifndef NULL
 #define NULL (void *)0
 #endif
@@ -20,6 +21,7 @@ typedef struct _io{
     int buffCount;
     char *nextCh;
     char *buffBase;
+    int bufferLength;
 } FILE;
 
 extern FILE files[FOPEN_MAX];
@@ -37,23 +39,32 @@ extern FILE files[FOPEN_MAX];
 enum _flags{
     _READ = 01,
     _WRITE = 02,
-    _APND = 04,
-    _UNBUF = 010,
-    _EOF = 020,
-    _ERR = 040,
-    _RDWR = 0100
+    _RDWR = 03,
+    _EOF = 010,
+    _ERR = 020
 };
 
 int _fillBuf(FILE* file);
 int _flushBuf(int character, FILE* file);
-int inline fEOF(FILE* file);
-int inline fERROR(FILE* file);
-int inline fileNo(FILE* file);
-int inline getC(FILE* file);
-int inline putC(FILE* file, char x);
-char putChar(char input);
-char getChar(void);
-char getCh(void);
+
+char inline fEOF(FILE *file);
+
+char inline fERROR(FILE *file);
+
+char inline fileNo(FILE *file);
+
+char inline getC(FILE *file);
+
+char inline putC(FILE *file, int x);
+
+void inline fflush(FILE *file);
+
+int putChar(char input);
+
+int getChar(void);
+
+int getCh(void);
 String getPWD(unsigned long long passwordSize, char replacementChar);
 FILE* Fopen(char *, char const *);
-#endif //STANDARDS_STANDARDS_H
+
+#endif
