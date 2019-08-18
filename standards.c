@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
 #include <ctype.h>
 #include "standards.h"
 
@@ -24,7 +25,7 @@ char getC(SFILE *file) {
 char putC(SFILE *file, int x) {
     if (file->buffBase == NULL) {
         if ((file->buffBase = (char *) calloc(BUFSIZ, sizeof(char))) == NULL)
-            return 0;
+            return EOF;
         file->nextCh = file->buffBase;
     }
     return (*file->nextCh ? file->bufCounter : file->bufCounter++) < BUFSIZ ? (*file->nextCh++ = x) : _flushBuf(x,
@@ -34,19 +35,6 @@ char putC(SFILE *file, int x) {
 SFILE files[FOPEN_MAX] = {{0, _READ,  0, (char *) 0, (char *) 0, 0},
                           {1, _WRITE, 0, (char *) 0, (char *) 0, 0},
                           {2, _WRITE, 0, (char *) 0, (char *) 0, 0}};
-
-void Fflush(SFILE *file) {
-    if ((file->flag & (_WRITE | _ERR)) != _WRITE)
-        return;
-    if (file->buffBase == NULL)
-        return;
-    char valid[BUFSIZ];
-    int i = 0;
-    for (; file->buffBase[i]; (valid[i] = file->buffBase[i]), (file->buffBase[i] = 0), i++);
-    write(file->fd, valid, i);
-    file->bufCounter = 0;
-    file->nextCh = file->buffBase;
-}
 
 static struct termios newTerminal, oldTerminal;
 
@@ -60,6 +48,44 @@ static void initTerminal(char Echoing){
 
 static void resetTerminal(void){
     tcsetattr(0, TCSANOW, &oldTerminal);
+}
+
+void Fflush(SFILE *file) {
+    if (file->buffBase == NULL)
+        return;
+    char valid[BUFSIZ];
+    int i = 0;
+    for (; file->buffBase[i]; (valid[i] = file->buffBase[i]), (file->buffBase[i] = 0), i++);
+    write(file->fd, valid, i);
+    file->bufCounter = 0;
+    file->nextCh = file->buffBase;
+}
+
+void Fclose(SFILE *file) {
+    if (file) {
+        Fflush(file);
+        free(file->buffBase);
+        close(file->fd);
+        file->fd = 0;
+        file->bufCounter = 0;
+        file->buffBase = NULL;
+        file->nextCh = NULL;
+        file->bufferLength = 0;
+        file->flag = 0;
+    }
+}
+
+unsigned putString(SFILE *file, String stringToWrite) {
+    unsigned i = 0;
+    for (; stringToWrite[i]; i++)
+        putC(file, stringToWrite[i]);
+    Fflush(file);
+    return i;
+}
+
+int Fseek(SFILE *file, long position, char origin) {
+    Fflush(file);
+    return lseek(file->fd, position, origin);
 }
 
 int putChar(char input) {
@@ -94,9 +120,9 @@ int _fillBuf(SFILE *file) {
         write(file->fd, file->buffBase, file->bufCounter);
         lseek(file->fd, file->bufferLength, SEEK_CUR);
     }
-    file->nextCh = file->buffBase;
     for (int i = 0; (file->buffBase)[i] != 0 && (file->buffBase)[i] != EOF; (file->buffBase)[i++] = 0);
     file->bufferLength = read(file->fd, file->buffBase, BUFSIZ);
+    file->nextCh = file->buffBase;
     if (file->bufferLength > 0)
         lseek(file->fd, -file->bufferLength, SEEK_CUR);
     else {

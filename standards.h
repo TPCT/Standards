@@ -15,6 +15,7 @@
 #endif
 
 typedef char* String;
+
 typedef struct _io{
     int fd;
     int flag;
@@ -44,6 +45,8 @@ enum _flags{
     _ERR = 020
 };
 
+unsigned putString(SFILE *file, String stringToWrite);
+
 int _fillBuf(SFILE *file);
 
 int _flushBuf(int character, SFILE *file);
@@ -58,7 +61,11 @@ char inline getC(SFILE *file);
 
 char inline putC(SFILE *file, int x);
 
+int Fseek(SFILE *file, long position, char origin);
+
 void inline Fflush(SFILE *file);
+
+void Fclose(SFILE *file);
 
 int putChar(char input);
 
