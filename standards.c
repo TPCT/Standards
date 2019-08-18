@@ -115,7 +115,7 @@ int getChar(void) {
 int getCh(void) {
     initTerminal(0);
     char c;
-    c = getChar();
+    read(0, &c, 1);
     resetTerminal();
     return c;
 }
@@ -169,15 +169,15 @@ String getPWD(unsigned long long passwordSize, char replacementChar){
     unsigned long long passwordCounter = 0;
     unsigned character = 0;
     while(passwordCounter < passwordSize &&
-          ((character = getCh()) != EOF) && character != '\n'){
+          (character = getCh()) != EOF && character != '\n') {
         if(character == newTerminal.c_cc[VERASE]){
             write(0, "\b \b", 3);
-            //fflush(stdin);
             data[passwordCounter ? --passwordCounter : passwordCounter] = '\0';
             continue;
         }
         data[passwordCounter++] = character;
         putChar(replacementChar);
+        Fflush(stdout);
     }
     putChar('\n');
     return data;
