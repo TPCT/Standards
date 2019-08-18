@@ -18,13 +18,13 @@ typedef char* String;
 typedef struct _io{
     int fd;
     int flag;
-    int buffCount;
+    int bufCounter;
     char *nextCh;
     char *buffBase;
     int bufferLength;
-} FILE;
+} SFILE;
 
-extern FILE files[FOPEN_MAX];
+extern SFILE files[FOPEN_MAX];
 
 #ifndef stdin
 #define stdin &files[0]
@@ -44,20 +44,21 @@ enum _flags{
     _ERR = 020
 };
 
-int _fillBuf(FILE* file);
-int _flushBuf(int character, FILE* file);
+int _fillBuf(SFILE *file);
 
-char inline fEOF(FILE *file);
+int _flushBuf(int character, SFILE *file);
 
-char inline fERROR(FILE *file);
+char inline fEOF(SFILE *file);
 
-char inline fileNo(FILE *file);
+char inline fERROR(SFILE *file);
 
-char inline getC(FILE *file);
+char inline fileNo(SFILE *file);
 
-char inline putC(FILE *file, int x);
+char inline getC(SFILE *file);
 
-void inline fflush(FILE *file);
+char inline putC(SFILE *file, int x);
+
+void inline Fflush(SFILE *file);
 
 int putChar(char input);
 
@@ -65,6 +66,7 @@ int getChar(void);
 
 int getCh(void);
 String getPWD(unsigned long long passwordSize, char replacementChar);
-FILE* Fopen(char *, char const *);
+
+SFILE *Fopen(char *, char const *);
 
 #endif

@@ -5,33 +5,49 @@
 #include <ctype.h>
 #include "standards.h"
 
-char fEOF(FILE *file) {
+char fEOF(SFILE *file) {
     return ((file->flag & _EOF) != 0);
 }
 
-char fERROR(FILE *file) {
+char fERROR(SFILE *file) {
     return ((file->flag & _ERR) != 0);
 }
 
-char fileNo(FILE *file) {
+char fileNo(SFILE *file) {
     return (file->fd);
 }
 
-char getC(FILE *file) {
-    return (--(file->buffCount) >= 0 ? *(file->nextCh++) : _fillBuf(file));
+char getC(SFILE *file) {
+    return (((file->nextCh) && ((file->bufCounter++) < BUFSIZ)) ? *(file->nextCh++) : _fillBuf(file));
 }
 
-char putC(FILE *file, int x) {
-    return ((file->nextCh == 0 ? file->buffCount++ : 0) <= BUFSIZ ? (*(file->nextCh++) = x) : _flushBuf(x, file));
+char putC(SFILE *file, int x) {
+    if (file->buffBase == NULL) {
+        if ((file->buffBase = (char *) calloc(BUFSIZ, sizeof(char))) == NULL)
+            return 0;
+        file->nextCh = file->buffBase;
+    }
+    return (*file->nextCh ? file->bufCounter : file->bufCounter++) < BUFSIZ ? (*file->nextCh++ = x) : _flushBuf(x,
+                                                                                                                file);
 }
 
-FILE files[FOPEN_MAX] = {{0, _READ, 0, (char *)0, (char *)0},
-                         {1, _WRITE, 0, (char *)0, (char *)0},
-                         {2, _WRITE, 0, (char *)0, (char *)0}};
+SFILE files[FOPEN_MAX] = {{0, _READ,  0, (char *) 0, (char *) 0, 0},
+                          {1, _WRITE, 0, (char *) 0, (char *) 0, 0},
+                          {2, _WRITE, 0, (char *) 0, (char *) 0, 0}};
 
-void fflush(FILE *file) {
-    _flushBuf(-100, file);
+void Fflush(SFILE *file) {
+    if ((file->flag & (_WRITE | _ERR)) != _WRITE)
+        return;
+    if (file->buffBase == NULL)
+        return;
+    char valid[BUFSIZ];
+    int i = 0;
+    for (; file->buffBase[i]; (valid[i] = file->buffBase[i]), (file->buffBase[i] = 0), i++);
+    write(file->fd, valid, i);
+    file->bufCounter = 0;
+    file->nextCh = file->buffBase;
 }
+
 static struct termios newTerminal, oldTerminal;
 
 static void initTerminal(char Echoing){
@@ -47,16 +63,15 @@ static void resetTerminal(void){
 }
 
 int putChar(char input) {
-    char data = write(0, &input, 1);
-    return data;
+    if (input == '\n') {
+        putC(stdout, input);
+        Fflush(stdout);
+    }
+    return putC(stdout, input);
 }
 
 int getChar(void) {
-    char c;
-    char data = read(0, &c, 1);
-    if (data != -1)
-        return c;
-    return data;
+    return getC(stdin);
 }
 
 int getCh(void) {
@@ -67,41 +82,47 @@ int getCh(void) {
     return c;
 }
 
-int _fillBuf(FILE *file) {
+int _fillBuf(SFILE *file) {
     if ((file->flag & (_READ | _EOF | _ERR)) != _READ)
         return EOF;
-    if (file->buffBase == NULL)
+    if (file->buffBase == NULL) {
         if ((file->buffBase = (char *) calloc(BUFSIZ, sizeof(char))) == NULL)
             return EOF;
-    for (int i = 0; (file->buffBase)[i] != 0; (file->buffBase)[i++] = 0);
-    lseek(file->fd, -file->bufferLength, SEEK_CUR);
-    write(file->fd, file->buffBase, file->buffCount);
-    lseek(file->fd, file->bufferLength, SEEK_CUR);
+    }
+    if (file->bufferLength) {
+        lseek(file->fd, -file->bufferLength, SEEK_CUR);
+        write(file->fd, file->buffBase, file->bufCounter);
+        lseek(file->fd, file->bufferLength, SEEK_CUR);
+    }
     file->nextCh = file->buffBase;
-    file->bufferLength = file->buffCount = read(file->fd, file->buffBase, BUFSIZ);
-    if (--file->buffCount < 0) {
-        if (file->buffCount == -1)
+    for (int i = 0; (file->buffBase)[i] != 0 && (file->buffBase)[i] != EOF; (file->buffBase)[i++] = 0);
+    file->bufferLength = read(file->fd, file->buffBase, BUFSIZ);
+    if (file->bufferLength > 0)
+        lseek(file->fd, -file->bufferLength, SEEK_CUR);
+    else {
+        if (!file->bufferLength)
             file->flag |= _EOF;
         else
             file->flag |= _ERR;
-        file->buffCount = 0;
+        lseek(file->fd, 0L, SEEK_END);
         return EOF;
     }
-    return *file->nextCh++;
+    return *file->nextCh || *file->nextCh != EOF ? *file->nextCh++ : *file->nextCh;
 }
 
-int _flushBuf(int x, FILE *file) {
-    if ((file->flag & (_WRITE | _EOF | _ERR)) != _WRITE)
+int _flushBuf(int x, SFILE *file) {
+    if ((file->flag & (_WRITE | _ERR)) != _WRITE)
         return EOF;
     if (file->buffBase == NULL)
         return EOF;
-    char validString[BUFSIZ];
+    char valid[BUFSIZ];
     int i = 0;
-    for (; (file->buffBase)[i] != 0; validString[i] = (file->buffBase)[i], (file->buffBase)[i++] = 0);
-    write(file->fd, validString, i);
-    file->nextCh = file->buffBase;
+    for (; file->buffBase[i]; (valid[i] = file->buffBase[i]), file->buffBase[i] = 0, i++);
+    write(file->fd, valid, i);
+    file->bufCounter = 0;
     if (x != -100)
-        *file->nextCh++ = x;
+        *file->buffBase = x;
+    file->nextCh = file->buffBase;
     return x;
 }
 
@@ -124,9 +145,9 @@ String getPWD(unsigned long long passwordSize, char replacementChar){
     return data;
 }
 
-FILE * Fopen(char *FileName, char const* mode){
+SFILE *Fopen(char *FileName, char const *mode) {
     char fd = 0;
-    FILE* returnFile;
+    SFILE *returnFile;
     if (!mode)
         return NULL;
     char modeLength = 0;
@@ -177,7 +198,10 @@ FILE * Fopen(char *FileName, char const* mode){
     if (fd == -1)
         return NULL;
     returnFile->fd = fd;
-    returnFile->buffBase = (char *) calloc(BUFSIZ, sizeof(char));
+    returnFile->bufCounter = 0;
+    returnFile->bufferLength = 0;
+    returnFile->buffBase = NULL;
+    _fillBuf(returnFile);
     returnFile->nextCh = returnFile->buffBase;
     return returnFile;
 }
