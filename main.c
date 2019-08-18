@@ -1,7 +1,4 @@
-#include <stdio.h>
 #include "standards.h"
-#include <unistd.h>
-#include <fcntl.h>
 
 int main(void) {
     char *x = "data";
